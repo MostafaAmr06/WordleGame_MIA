@@ -1,92 +1,131 @@
 import tkinter as tk
 from tkinter import messagebox
-import backend
+import logic
 
-#global variables for use in each function
+#global variables
 root = None
 cells = []
-current_row = 0
-current_col = 0
-target_word = None
-game_over = False
 status_label = None
 keyboard_buttons = {}
 
 def create_gui():
-    global root, cells, target_word, status_label
+    global root, cells, status_label
+    
+    #start game logic, will move soon or merge with main.py later
+    if not logic.start_game():
+        print("cant start game")
+        return
     
     root = tk.Tk()
     root.title("Wordle")
-    root.geometry("400x700")
+    root.geometry("400x600")
+    root.minsize(350, 550)
     root.configure(bg='white')
-    root.minsize(350, 600)  #minimum window size
+    
+    #grid weights for resizing
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_columnconfigure(0, weight=1)
     
     #main container
     main_frame = tk.Frame(root, bg='white')
-    main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+    main_frame.grid(row=0, column=0, sticky='nsew') #nsew = north, south, east, west
+    main_frame.grid_rowconfigure(1, weight=1)
+    main_frame.grid_columnconfigure(0, weight=1)
     
-    # top bar with title and icons
-    top_bar = tk.Frame(main_frame, bg='white', height=60)
-    top_bar.pack(fill='x', pady=5)
-    top_bar.pack_propagate(False)
+    #top bar with title and icons
+    top_bar = tk.Frame(main_frame, bg='white', height=40)
+    top_bar.grid(row=0, column=0, sticky='ew', pady=2) #ew = east, west
+    top_bar.grid_propagate(False)
+    top_bar.grid_columnconfigure(1, weight=1)
     
-    # title (wordle just like the image)
-    title = tk.Label(top_bar, text="WORDLE", font=('Arial', 28, 'bold'), bg='white', fg='black')
-    title.pack(side='left', padx=20)
+    #help icon (left)
+    help_icon = tk.Label(top_bar, text="?", font=('Arial', 14), bg='white', fg='black')
+    help_icon.grid(row=0, column=0, padx=10)
     
-    # Icons (I tried to use another library instead of icons like that but it didnt work and was time consuming for a small issue)
-    help_icon = tk.Label(top_bar, text="?", font=('Arial', 16), bg='white', fg='black')
-    help_icon.pack(side='right', padx=10)
+    #title (wordle word)
+    title = tk.Label(top_bar, text="WORDLE", font=('Arial', 24, 'bold'), bg='white', fg='black')
+    title.grid(row=0, column=1, padx=15)
     
-    stats_icon = tk.Label(top_bar, text="📊", font=('Arial', 16), bg='white', fg='black')
-    stats_icon.pack(side='right', padx=5)
+    #icons (right), i was trying to match the image in the task as much as possible
+    stats_icon = tk.Label(top_bar, text="📊", font=('Arial', 14), bg='white', fg='black')
+    stats_icon.grid(row=0, column=2, padx=3)
     
-    settings_icon = tk.Label(top_bar, text="⚙", font=('Arial', 16), bg='white', fg='black')
-    settings_icon.pack(side='right', padx=10)
+    settings_icon = tk.Label(top_bar, text="⚙", font=('Arial', 14), bg='white', fg='black')
+    settings_icon.grid(row=0, column=3, padx=10)
     
-    #game grid
-    grid_frame = tk.Frame(main_frame, bg='white')
-    grid_frame.pack(pady=15, expand=True)
-    
-    #grid weights configuration for responsive layout
-    for i in range(6):
-        grid_frame.grid_rowconfigure(i, weight=1)
-    for i in range(5):
-        grid_frame.grid_columnconfigure(i, weight=1)
+    #game area (grid + keyboard)
+    game_area = tk.Frame(main_frame, bg='white')
+    game_area.grid(row=1, column=0, sticky='nsew', padx=5, pady=0)
+    game_area.grid_rowconfigure(0, weight=1)
+    game_area.grid_rowconfigure(1, weight=0)
+    game_area.grid_columnconfigure(0, weight=1)
+    grid_frame = tk.Frame(game_area, bg='white')
+    grid_frame.grid(row=0, column=0, pady=0)
     
     cells = []
     for row in range(6):
         row_cells = []
         for col in range(5):
-            cell = tk.Label(grid_frame, font=('Arial', 18, 'bold'), 
+            cell = tk.Label(grid_frame, width=4, height=2, font=('Arial', 20, 'bold'), 
                           bg='white', fg='black', relief='solid', bd=2,
-                          anchor='center', width=6, height=3)
-            cell.grid(row=row, column=col, padx=1, pady=1, sticky='nsew')
+                          anchor='center')
+            cell.grid(row=row, column=col, padx=0, pady=0, sticky='nsew')
             row_cells.append(cell)
         cells.append(row_cells)
     
+    for i in range(6):
+        grid_frame.grid_rowconfigure(i, weight=1)
+    for i in range(5):
+        grid_frame.grid_columnconfigure(i, weight=1)
     
-    #create the virtual keyboard, function is under
-    create_keyboard(main_frame) 
-
+    #create virtual keyboard, the function is down in this file
+    create_keyboard(game_area)
     
-    # Keyboard events
+    #status
+    status_label = tk.Label(game_area, text="", font=('Arial', 12), bg='white', fg='black')
+    status_label.grid(row=2, column=0, pady=0)
+    
+    #keyboard events
     root.bind('<Key>', handle_key)
     root.bind('<Return>', submit_guess)
     root.bind('<BackSpace>', handle_backspace)
     
-    # START GAME
-    target_word = backend.word_manager("pick_random")
+    #bind resize to the function defined below
+    root.bind('<Configure>', on_resize)
+    
     root.focus_set()
     root.mainloop()
+
+def on_resize(event): #function to handle resizing the window
+    if hasattr(root, 'winfo_width') and hasattr(root, 'winfo_height'):
+        window_width = root.winfo_width()
+        window_height = root.winfo_height()
+        cell_size = min(window_width // 8, window_height // 12)  
+        font_size = max(12, min(24, cell_size // 3))
+        
+        #update all cells
+        for row in cells:
+            for cell in row:
+                cell.configure(font=('Arial', font_size, 'bold'))
+        
+        #update keyboard font size
+        keyboard_font_size = max(8, min(14, window_width // 50))
+        for btn in keyboard_buttons.values():
+            if btn.cget('text') == 'ENTER':
+                btn.configure(font=('Arial', max(6, keyboard_font_size-2), 'bold'))
+            elif btn.cget('text') == '⌫':
+                btn.configure(font=('Arial', keyboard_font_size, 'bold'))
+            else:
+                btn.configure(font=('Arial', keyboard_font_size, 'bold'))
 
 def create_keyboard(parent):
     global keyboard_buttons
     
     keyboard_frame = tk.Frame(parent, bg='white')
-    keyboard_frame.pack(pady=10, fill='x')
+    keyboard_frame.grid(row=1, column=0, pady=0, sticky='ew')
+    keyboard_frame.grid_columnconfigure(0, weight=1)
     
-    #keyboard layout
+    #keyboard layout, tried to do something different for the enter and backspace buttons but didnt work
     rows = [
         ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
         ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
@@ -95,65 +134,65 @@ def create_keyboard(parent):
     
     for row_idx, row in enumerate(rows):
         row_frame = tk.Frame(keyboard_frame, bg='white')
-        row_frame.pack(pady=1, fill='x')
+        row_frame.pack(pady=0, fill='x')
         
-        # center the row
-        spacer_left = tk.Frame(row_frame, bg='white')
-        spacer_left.pack(side='left', fill='x', expand=True)
+        # Configure row to expand
+        row_frame.grid_columnconfigure(0, weight=1)
         
         for letter in row:
             if letter == 'ENTER':
-                btn = tk.Button(row_frame, text=letter, width=8, height=2, 
-                              font=('Arial', 9, 'bold'), bg='#d3d6da', fg='black',
+                btn = tk.Button(row_frame, text=letter, height=2, 
+                              font=('Arial', 8, 'bold'), bg='#d3d6da', fg='black',
                               relief='flat', command=submit_guess)
-            elif letter == '⌫': #same issue as the icons, I tried to use another library but it didnt work and was time consuming
-                btn = tk.Button(row_frame, text=letter, width=8, height=2,
-                              font=('Arial', 12, 'bold'), bg='#d3d6da', fg='black',
+            elif letter == '⌫':
+                btn = tk.Button(row_frame, text=letter, height=2,
+                              font=('Arial', 10, 'bold'), bg='#d3d6da', fg='black',
                               relief='flat', command=lambda: handle_backspace(None))
             else:
-                btn = tk.Button(row_frame, text=letter, width=5, height=2,
-                              font=('Arial', 11, 'bold'), bg='#d3d6da', fg='black',
+                btn = tk.Button(row_frame, text=letter, height=2,
+                              font=('Arial', 10, 'bold'), bg='#d3d6da', fg='black',
                               relief='flat', command=lambda l=letter: handle_key_click(l))
-            btn.pack(side='left', padx=1)
+            btn.pack(side='left', padx=1, fill='x', expand=True)
             keyboard_buttons[letter] = btn
-        
-        spacer_right = tk.Frame(row_frame, bg='white')
-        spacer_right.pack(side='right', fill='x', expand=True)
 
 def handle_key_click(letter):
-    global current_col
-    if game_over:
+    if logic.is_game_lost() or logic.is_game_won():
         return
+    
+    current_row = len(logic.guessed_words)
+    current_col = len([c for c in cells[current_row] if c.cget("text")])
+    
     if current_col < 5:
         cells[current_row][current_col].config(text=letter)
-        current_col += 1
-
 
 def handle_key(event):
-    global current_col
-    if game_over:
+    if logic.is_game_lost() or logic.is_game_won():
         return
+    
+    current_row = len(logic.guessed_words)
+    current_col = len([c for c in cells[current_row] if c.cget("text")])
+    
     if event.char.isalpha() and current_col < 5:
         cells[current_row][current_col].config(text=event.char.upper())
-        current_col += 1
 
 def handle_backspace(event):
-    global current_col
-    if game_over:
+    if logic.is_game_lost() or logic.is_game_won():
         return
+    
+    current_row = len(logic.guessed_words)
+    current_col = len([c for c in cells[current_row] if c.cget("text")])
+    
     if current_col > 0:
         current_col -= 1
         cells[current_row][current_col].config(text="")
 
-
-# will move it to logic.py when i do it, it already uses some functions from backend.py so i will revamp it
 def submit_guess(event=None):
-    global current_row, game_over
-    
-    if game_over:
+    if logic.is_game_lost() or logic.is_game_won():
         return
     
-    # Get word
+    current_row = len(logic.guessed_words)
+    
+    #Get word
     word = ""
     for col in range(5):
         letter = cells[current_row][col].cget("text")
@@ -161,73 +200,58 @@ def submit_guess(event=None):
     
     word = word.strip()
     
-    # Check word
-    if len(word) != 5:
-        status_label.config(text="Need 5 letters!")
+    #submit to logic
+    success, feedback = logic.submit_guess(word)
+    if not success:
+        status_label.config(text=feedback)
         return
     
-    if not backend.word_manager("validate", word):
-        status_label.config(text="Not a word!")
-        return
+    #clear status message
+    status_label.config(text="")
     
-    # Check guess
-    feedback = backend.check_guess(word, target_word)
+    #color the row
     color_row(current_row, feedback)
-    update_keyboard_colors(word, feedback)
+    update_keyboard_colors()
     
-    # Check win
-    if feedback == 'GGGGG':
-        game_over = True
-        status_label.config(text=f"Won in {current_row + 1} tries!")
-        messagebox.showinfo("Win!", f"You won in {current_row + 1} tries!")
-        return
-    
-    # Next row
-    current_row += 1
-    
-    # Check lose
-    if current_row >= 6:
-        game_over = True
-        status_label.config(text=f"Lost! Word was: {target_word}")
-        messagebox.showinfo("Lose!", f"Word was: {target_word}")
-        return
-    
-    global current_col
-    current_col = 0
+    #check win/lose
+    if logic.is_game_won():
+        status_label.config(text=f"Won in {len(logic.guessed_words)} tries!")
+        result = messagebox.askyesno("Win!", f"You won in {len(logic.guessed_words)} tries!\n\nPlay again?")
+        if result:
+            new_game()
+    elif logic.is_game_lost():
+        status_label.config(text=f"Lost! Word was: {logic.current_word}")
+        result = messagebox.askyesno("Lose!", f"Word was: {logic.current_word}\n\nPlay again?")
+        if result:
+            new_game()
 
-# will move to logic.py when i do it
 def color_row(row, feedback):
     colors = {'G': '#6aaa64', 'Y': '#c9b458', 'B': '#3a3a3c'}
     for col in range(5):
         color = colors.get(feedback[col], '#3a3a3c')
         cells[row][col].config(bg=color, fg='white')
 
-def update_keyboard_colors(word, feedback):
-    for i, letter in enumerate(word.upper()):
+def update_keyboard_colors():
+    colors = logic.get_keyboard_colors()
+    for letter, color in colors.items():
         if letter in keyboard_buttons:
-            if feedback[i] == 'G':
-                keyboard_buttons[letter].config(bg='#6aaa64', fg='white')
-            elif feedback[i] == 'Y':
-                keyboard_buttons[letter].config(bg='#c9b458', fg='white')
-            elif feedback[i] == 'B':
-                keyboard_buttons[letter].config(bg='#3a3a3c', fg='white')
+            keyboard_buttons[letter].config(bg=color, fg='white' if color != '#d3d6da' else 'black')
 
 def new_game():
-    global current_row, current_col, target_word, game_over
+    #restart logic
+    logic.start_game()
     
-    current_row = 0
-    current_col = 0
-    target_word = backend.word_manager("pick_random")
-    game_over = False
-    
-    # Clear grid
+    #clear grid
     for row in range(6):
         for col in range(5):
             cells[row][col].config(text="", bg='white', fg='black')
     
-    # Reset keyboard colors
+    #reset keyboard colors
     for btn in keyboard_buttons.values():
         btn.config(bg='#d3d6da', fg='black')
+    
+    #clear status
+    status_label.config(text="")
 
 if __name__ == "__main__":
     create_gui() 
