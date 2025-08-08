@@ -5,7 +5,7 @@ import os
 
 # Add data folder to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '.'))
-import logic
+import backend
 
 #global variables
 root = None
@@ -16,8 +16,7 @@ keyboard_buttons = {}
 def create_gui():
     global root, cells, status_label
     
-    #start game logic, will move soon or merge with main.py later
-    if not logic.start_game():
+    if not backend.start_game():
         print("cant start game")
         return
     
@@ -161,30 +160,30 @@ def create_keyboard(parent):
             keyboard_buttons[letter] = btn
 
 def handle_key_click(letter):
-    if logic.is_game_lost() or logic.is_game_won():
+    if backend.is_game_lost() or backend.is_game_won():
         return
     
-    current_row = len(logic.guessed_words)
+    current_row = len(backend.guessed_words)
     current_col = len([c for c in cells[current_row] if c.cget("text")])
     
     if current_col < 5:
         cells[current_row][current_col].config(text=letter)
 
 def handle_key(event):
-    if logic.is_game_lost() or logic.is_game_won():
+    if backend.is_game_lost() or backend.is_game_won():
         return
     
-    current_row = len(logic.guessed_words)
+    current_row = len(backend.guessed_words)
     current_col = len([c for c in cells[current_row] if c.cget("text")])
     
     if event.char.isalpha() and current_col < 5:
         cells[current_row][current_col].config(text=event.char.upper())
 
 def handle_backspace(event):
-    if logic.is_game_lost() or logic.is_game_won():
+    if backend.is_game_lost() or backend.is_game_won():
         return
     
-    current_row = len(logic.guessed_words)
+    current_row = len(backend.guessed_words)
     current_col = len([c for c in cells[current_row] if c.cget("text")])
     
     if current_col > 0:
@@ -192,10 +191,10 @@ def handle_backspace(event):
         cells[current_row][current_col].config(text="")
 
 def submit_guess(event=None):
-    if logic.is_game_lost() or logic.is_game_won():
+    if backend.is_game_lost() or backend.is_game_won():
         return
     
-    current_row = len(logic.guessed_words)
+    current_row = len(backend.guessed_words)
     
     #Get word
     word = ""
@@ -205,8 +204,8 @@ def submit_guess(event=None):
     
     word = word.strip()
     
-    #submit to logic
-    success, feedback = logic.submit_guess(word)
+    #submit to backend
+    success, feedback = backend.submit_guess(word)
     if not success:
         status_label.config(text=feedback)
         return
@@ -219,14 +218,14 @@ def submit_guess(event=None):
     update_keyboard_colors()
     
     #check win/lose
-    if logic.is_game_won():
-        status_label.config(text=f"Won in {len(logic.guessed_words)} tries!")
-        result = messagebox.askyesno("Win!", f"You won in {len(logic.guessed_words)} tries!\n\nPlay again?")
+    if backend.is_game_won():
+        status_label.config(text=f"Won in {len(backend.guessed_words)} tries!")
+        result = messagebox.askyesno("Win!", f"You won in {len(backend.guessed_words)} tries!\n\nPlay again?")
         if result:
             new_game()
-    elif logic.is_game_lost():
-        status_label.config(text=f"Lost! Word was: {logic.current_word}")
-        result = messagebox.askyesno("Lose!", f"Word was: {logic.current_word}\n\nPlay again?")
+    elif backend.is_game_lost():
+        status_label.config(text=f"Lost! Word was: {backend.current_word}")
+        result = messagebox.askyesno("Lose!", f"Word was: {backend.current_word}\n\nPlay again?")
         if result:
             new_game()
 
@@ -237,14 +236,14 @@ def color_row(row, feedback):
         cells[row][col].config(bg=color, fg='white')
 
 def update_keyboard_colors():
-    colors = logic.get_keyboard_colors()
+    colors = backend.get_keyboard_colors()
     for letter, color in colors.items():
         if letter in keyboard_buttons:
             keyboard_buttons[letter].config(bg=color, fg='white' if color != '#d3d6da' else 'black')
 
 def new_game():
-    #restart logic
-    logic.start_game()
+    #restart backend
+    backend.start_game()
     
     #clear grid
     for row in range(6):

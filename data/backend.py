@@ -1,92 +1,98 @@
 import random
-# backend.py
-print("Backend module loaded.")
 
-def word_manager(action, guess=None): #handles operations like loading the word list and picking a random word
-    if not hasattr(word_manager, 'words'):
-        word_manager.words = []
-        with open('words.txt', 'r') as file:
+words = []
+current_word = ""
+guessed_words = []
+feedback_history = []
+
+def load_words():
+    global words
+    try:
+        with open('data/words.txt', 'r') as file:
             for line in file:
                 word = line.strip().lower()
                 if len(word) == 5:
-                     word_manager.words.append(word)
-    
-    #actions from other functions
-    if action == "load":
-        return word_manager.words
-    elif action == "pick_random":
-        if not word_manager.words:
-            return None
-        return random.choice(word_manager.words)
-    elif action == "validate":
-        if len(guess) != 5:
-            return False
-        return guess.lower() in word_manager.words
-    else:
-        return None
+                    words.append(word)
+    except:
+        print("cant load words!!! helo MIA")
+        return False
+    return True
 
-def check_guess(guess, target_word): #checks the guess from user and returns feedback
-    if len(guess) != 5 or len(target_word) != 5:
+def pick_word():
+    global current_word
+    if not words:
+        return False
+    current_word = random.choice(words)
+    return True
+
+def is_valid_word(word):
+    if len(word) != 5:
+        return False
+    return word.lower() in words
+
+def check_guess(guess):
+    if len(guess) != 5 or len(current_word) != 5:
         return None
     
     guess = guess.lower()
-    target = target_word.lower()
+    target = current_word.lower()
     
-    # here i created a feedback string
-    # B = Black (not in word)
-    feedback = ['B'] * 5
+    result = ['B'] * 5
     
-    #first pass: mark correct positions (G = green)
+    # check correct positions first
     for i in range(5):
         if guess[i] == target[i]:
-            feedback[i] = 'G'
+            result[i] = 'G'
     
-    #second pass: mark yellow positions (Y = yellow)
+    # check wrong positions
     target_letters = list(target)
-    # Remove letters that are already marked as green (G)
     for i in range(5):
-        if feedback[i] == 'G':
+        if result[i] == 'G':
             target_letters[i] = None
     
     for i in range(5):
-        if feedback[i] != 'G':  # Skip already marked positions
+        if result[i] != 'G':
             if guess[i] in target_letters:
-                feedback[i] = 'Y'
-                # Remove the first occurrence of this letter from target_letters
+                result[i] = 'Y'
                 for j in range(5):
                     if target_letters[j] == guess[i]:
                         target_letters[j] = None
                         break
     
-    return ''.join(feedback)
+    return ''.join(result)
 
-def play_game(): #main game function, will probably move soon or merge with main.py later
-    words = word_manager("load")
-    target_word = word_manager("pick_random")
-    print(f"Game started! Target word: {target_word}")  # TESTING ONLY
-    
-    attempts = 0
-    max_attempts = 6
-    
-    while attempts < max_attempts:
-        print(f"\nAttempt {attempts + 1}/{max_attempts}")
-        guess = input("Enter your 5-letter guess: ").strip().lower()
-        
-        if not word_manager("validate", guess):
-            print("Invalid guess!")
-            continue
-        
-        feedback = check_guess(guess, target_word)
-        print(f"Feedback: {feedback}")
-        
-        if feedback == 'GGGGG':
-            print(f"Congratulations! You found the word in {attempts + 1} attempts!")
-            return
-        
-        attempts += 1
-    
-    print(f"Game over! The word was: {target_word}")
+def start_game():
+    global guessed_words, feedback_history
+    guessed_words = []
+    feedback_history = []
+    return load_words() and pick_word()
 
-# TESTING ONLY
-if __name__ == "__main__":
-    play_game()
+def submit_guess(word):
+    if not is_valid_word(word):
+        return False, "not a word"
+    
+    guessed_words.append(word)
+    feedback = check_guess(word)
+    feedback_history.append(feedback)
+    
+    return True, feedback
+
+def is_game_won():
+    return feedback_history and feedback_history[-1] == 'GGGGG'
+
+def is_game_lost():
+    return len(guessed_words) >= 6
+
+def get_keyboard_colors():
+    colors = {}
+    for word, feedback in zip(guessed_words, feedback_history):
+        for i, letter in enumerate(word.upper()):
+            #only update if we don't have a better color (fixes a logic error)
+            if letter not in colors or feedback[i] == 'G':
+                if feedback[i] == 'G':
+                    colors[letter] = '#6aaa64'
+                elif feedback[i] == 'Y':
+                    colors[letter] = '#c9b458'
+                elif feedback[i] == 'B':
+                    colors[letter] = '#3a3a3c'
+    return colors 
