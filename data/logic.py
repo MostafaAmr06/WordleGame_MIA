@@ -8,7 +8,7 @@ feedback_history = []
 def load_words():
     global words
     try:
-        with open('words.txt', 'r') as file:
+        with open('data/words.txt', 'r') as file:
             for line in file:
                 word = line.strip().lower()
                 if len(word) == 5:

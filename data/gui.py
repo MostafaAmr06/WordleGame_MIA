@@ -1,5 +1,10 @@
 import tkinter as tk
 from tkinter import messagebox
+import sys
+import os
+
+# Add data folder to path
+sys.path.append(os.path.join(os.path.dirname(__file__), '.'))
 import logic
 
 #global variables
@@ -252,6 +257,3 @@ def new_game():
     
     #clear status
     status_label.config(text="")
-
-if __name__ == "__main__":
-    create_gui() 
