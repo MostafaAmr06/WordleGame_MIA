@@ -5,15 +5,11 @@ print("Backend module loaded.")
 def word_manager(action, guess=None): #handles operations like loading the word list and picking a random word
     if not hasattr(word_manager, 'words'):
         word_manager.words = []
-        try:
-            with open('words.txt', 'r') as file:
-                for line in file:
-                    word = line.strip().lower()
-                    if len(word) == 5:
-                        word_manager.words.append(word)
-        except FileNotFoundError:
-            print("Error: words.txt file not found!")
-            return None
+        with open('words.txt', 'r') as file:
+            for line in file:
+                word = line.strip().lower()
+                if len(word) == 5:
+                     word_manager.words.append(word)
     
     #actions from other functions
     if action == "load":
